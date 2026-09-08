@@ -1,0 +1,28 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import crypto from 'node:crypto';
+import {createHook} from '../runtime/access-hook.mjs';
+test('runtime tracks actual tool completion and rejects new calls during drain',async t=>{
+  const base=await fs.mkdtemp(path.join(os.tmpdir(),'devspace-runtime-'));
+  await fs.mkdir(path.join(base,'state'));await fs.mkdir(path.join(base,'config/access'),{recursive:true});
+  t.after(()=>fs.rm(base,{recursive:true,force:true}));
+  const key='test-telemetry-key',manifest={revision:'unit-generation',grants:[]},handlers={};
+  const hook=createHook({manifest,key,base});t.after(()=>hook.shutdown());
+  const server={registerTool:(name,definition,handler)=>{handlers[name]=handler;}};
+  hook.register(server);
+  let finish;
+  server.registerTool('slow',{},()=>new Promise(resolve=>{finish=resolve;}));
+  const pending=handlers.slow();
+  let packet=JSON.parse(await fs.readFile(path.join(base,'state/access-status.json'),'utf8'));
+  assert.equal(packet.data.activeRequests,1);
+  assert.equal(packet.signature,crypto.createHmac('sha256',key).update(JSON.stringify(packet.data)).digest('hex'));
+  await fs.writeFile(path.join(base,'config/access/drain.json'),'{}');
+  await assert.rejects(handlers.list_authorized_folders(),/being updated/);
+  finish({content:[]});await pending;
+  packet=JSON.parse(await fs.readFile(path.join(base,'state/access-status.json'),'utf8'));
+  assert.equal(packet.data.activeRequests,0);
+  hook.shutdown();
+});

@@ -1,0 +1,62 @@
+import test,{after} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import net from 'node:net';
+import http from 'node:http';
+const dependencies=new URL('../node_modules',import.meta.url).pathname;
+const fixture=await fs.mkdtemp(path.join(os.tmpdir(),'devspace-http-'));
+process.env.DEVSPACE_HOME=fixture;
+await fs.mkdir(path.join(fixture,'app'),{recursive:true});
+await fs.writeFile(path.join(fixture,'app/package.json'),'{}');
+await fs.symlink(dependencies,path.join(fixture,'app/node_modules'));
+const {createManager}=await import('../src/server.mjs');
+const {atomicJSON}=await import('../src/store.mjs');
+const {stageGeneration}=await import('../src/policy.mjs');
+after(()=>fs.rm(fixture,{recursive:true,force:true}));
+test('manager enforces launch token, origin, session, CSRF and frame isolation',async t=>{
+  const initial=await stageGeneration([],{template:'(version 1)\n(deny default)\n; ACCESS_GRANTS',baseConfig:{}});
+  await atomicJSON(path.join(fixture,'config/access/active.json'),{revision:initial.revision});
+  const port=await new Promise(resolve=>{const s=net.createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p));});});
+  const manager=createManager({port,supervisor:{state:async()=>({service:{running:false,loaded:false},tunnel:{running:false},telemetry:null,busy:false})},transactions:{recover:async()=>{}},picker:async()=>({cancelled:true})});
+  const server=await manager.start();t.after(()=>manager.close());
+  const origin='http://127.0.0.1:'+port;
+  assert.equal(server.address().address,'127.0.0.1');
+  let r=await fetch(origin+'/api/state');assert.equal(r.status,401);
+  const badHostStatus=await new Promise((resolve,reject)=>{const q=http.get(origin+'/health',{headers:{Host:'evil.example'}},r=>{r.resume();resolve(r.statusCode);});q.on('error',reject);});assert.equal(badHostStatus,403);
+  r=await fetch(origin+'/internal/launch',{method:'POST',headers:{'x-launch-secret':'wrong'}});assert.equal(r.status,403);
+  r=await fetch(origin+'/internal/launch',{method:'POST',headers:{'x-launch-secret':manager.launchSecret}});
+  const url=(await r.json()).url,token=new URL(url).hash.slice('#launch='.length);
+  r=await fetch(origin+'/api/session',{method:'POST',headers:{Origin:'https://evil.example','Content-Type':'application/json'},body:JSON.stringify({token})});assert.equal(r.status,403);
+  r=await fetch(origin+'/api/session',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({token})});
+  assert.equal(r.status,200);assert.match(r.headers.get('set-cookie'),/HttpOnly; SameSite=Strict/);
+  const cookie=r.headers.get('set-cookie').split(';')[0],csrf=(await r.json()).csrf;
+  r=await fetch(origin+'/api/session',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({token})});assert.equal(r.status,401);
+  r=await fetch(origin+'/api/state',{headers:{Cookie:cookie}});assert.equal(r.status,200);assert.equal((await r.json()).grants.length,0);
+  r=await fetch(origin+'/api/pick-folder',{method:'POST',headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/json'},body:'{}'});assert.equal(r.status,403);
+  r=await fetch(origin+'/api/pick-folder',{method:'POST',headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/json','X-CSRF-Token':csrf},body:'{}'});assert.deepEqual(await r.json(),{cancelled:true});
+  r=await fetch(origin+'/');assert.equal(r.headers.get('x-frame-options'),'DENY');assert.match(r.headers.get('content-security-policy'),/frame-ancestors 'none'/);assert.equal(r.headers.get('access-control-allow-origin'),null);
+});
+test('idle manager exits without stopping DevSpace, but not while picker is open',async t=>{
+  let now=1000,exited=false,stops=0;
+  const port=await new Promise(resolve=>{const s=net.createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p));});});
+  const manager=createManager({port,clock:()=>now,idleMs:100,idleSweepMs:10,onIdle:()=>{exited=true;},
+    supervisor:{state:async()=>({service:{running:true},tunnel:{running:true},busy:false}),stop:async()=>{stops++;}},
+    transactions:{recover:async()=>{}},
+    picker:({signal})=>new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(Object.assign(new Error('cancelled'),{name:'AbortError'}))))});
+  await manager.start();t.after(()=>manager.close());
+  const origin='http://127.0.0.1:'+port;
+  let r=await fetch(origin+'/internal/launch',{method:'POST',headers:{'x-launch-secret':manager.launchSecret}});
+  const nonce=new URL((await r.json()).url).hash.slice('#launch='.length);
+  r=await fetch(origin+'/api/session',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({token:nonce})});
+  const cookie=r.headers.get('set-cookie').split(';')[0],csrf=(await r.json()).csrf;
+  const headers={Cookie:cookie,Origin:origin,'Content-Type':'application/json','X-CSRF-Token':csrf};
+  const pending=fetch(origin+'/api/pick-folder',{method:'POST',headers,body:'{}'});
+  await new Promise(r=>setTimeout(r,30));now=1200;
+  await new Promise(r=>setTimeout(r,30));assert.equal(exited,false);
+  await fetch(origin+'/api/cancel-picker',{method:'POST',headers,body:'{}'});
+  assert.deepEqual(await (await pending).json(),{cancelled:true});
+  now=1400;await new Promise(r=>setTimeout(r,40));
+  assert.equal(exited,true);assert.equal(stops,0);
+});

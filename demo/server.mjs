@@ -1,0 +1,31 @@
+// UI-only demo. Never imports the real supervisor, installer or management server.
+import express from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {propose} from '../src/policy.mjs';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const app=express();app.use(express.json({limit:'16kb'}));
+let revision='demo-1',sequence=1,operation=null;
+let grants=[{id:'projects',path:'/Demo/项目资料',name:'项目资料',mode:'rw',available:true},{id:'reference',path:'/Demo/参考资料',name:'参考资料',mode:'ro',available:true}];
+const plans=new Map();
+app.use((req,res,next)=>{if(req.headers.host!=='127.0.0.1:7680')return res.sendStatus(403);res.set('Cache-Control','no-store');next();});
+app.get('/',(_,res)=>{let html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
+  html=html.replace('<body>','<body><div style="padding:10px 16px;text-align:center;background:#e8efe9;color:#325644;font:12px -apple-system,sans-serif">界面演示 · 示例目录与模拟状态 · 不访问真实文件，不修改系统权限</div>');
+  html=html.replace('DevSpace · Air','UI Demo');res.type('html').send(html);});
+app.get('/api/session',(_,res)=>res.json({csrf:'demo-only'}));
+app.post('/api/session',(_,res)=>res.json({csrf:'demo-only'}));
+app.post('/api/activity',(_,res)=>res.json({ok:true}));
+app.get('/api/state',(_,res)=>res.json({revision,grants,service:{running:true,tunnelRunning:true,busy:false,generation:revision},operation,picking:false}));
+app.post('/api/pick-folder',(_,res)=>res.json({cancelled:false,path:'/Demo/新项目-'+sequence,name:'新项目-'+sequence}));
+app.post('/api/cancel-picker',(_,res)=>res.json({ok:true}));
+app.post('/api/preview',(req,res)=>{try{
+  const {action,path:p,id,mode}=req.body;
+  const plan=propose(grants,action,action==='add'?p:id,mode),previewId=String(++sequence);plans.set(previewId,plan);
+  res.json({previewId,merged:plan.removed,target:plan.target});
+}catch(e){res.status(400).json({error:e.message});}});
+app.post('/api/apply',(req,res)=>{const plan=plans.get(req.body.previewId);if(!plan)return res.status(400).json({error:'请重新确认'});
+  grants=plan.grants.map(g=>({...g,name:path.basename(g.path),available:true}));plans.delete(req.body.previewId);revision='demo-'+(++sequence);
+  operation={id:String(sequence),phase:'done',message:'示例已更新，未修改真实权限'};res.json({ok:true});});
+app.use(express.static(path.join(root,'public')));
+app.listen(7680,'127.0.0.1',()=>console.log('UI-only demo: http://127.0.0.1:7680 — no real file access or permission changes.'));

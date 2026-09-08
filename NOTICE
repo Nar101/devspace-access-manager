@@ -1,0 +1,17 @@
+DevSpace Access Manager
+Copyright (c) 2026 Nar / 那不然
+
+This is an independent macOS companion project, not an official DevSpace release.
+Upstream: https://github.com/Waishnav/devspace
+Integration target: @waishnav/devspace 1.0.8 (MIT).
+
+DevSpace provides MCP, workspace, file and command execution capabilities.
+This project provides a local permission-management UI, access generations,
+controlled permission changes, process tracking, a read-only discovery tool,
+and launch integrations. Upstream implementation excerpts used as patch anchors
+in src/install.mjs remain attributable to DevSpace contributors.
+
+The DevSpace MIT notice is reproduced in docs/DEVSPACE-LICENSE.txt.
+Express and its dependencies are installed through npm and retain their own
+license notices. No installed upstream package, credentials, deployment state,
+or private service configuration is distributed in this repository.

@@ -1,0 +1,24 @@
+{
+  "name": "devspace-access-manager",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": "Nar / 那不然",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nar101/devspace-access-manager.git"
+  },
+  "engines": {
+    "node": ">=24 <27"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check:public": "node scripts/check-public.mjs",
+    "demo": "node demo/server.mjs",
+    "install:local": "node src/install.mjs"
+  },
+  "dependencies": {
+    "express": "5.1.0"
+  }
+}

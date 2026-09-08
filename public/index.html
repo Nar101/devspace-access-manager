@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>DevSpace · 文件夹权限</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+  <div class="shell">
+    <header class="masthead">
+      <a class="brand" href="/" aria-label="DevSpace 本机管理"><span class="brand-mark">d<span>·</span></span><span>DevSpace <small>本机管理</small></span></a>
+      <span class="local-label"><svg width="13" height="15" viewBox="0 0 16 18" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="2" y="7" width="12" height="9" rx="2"/><path d="M5 7V5a3 3 0 0 1 6 0v2M8 10v3"/></svg> 仅此电脑可访问</span>
+    </header>
+    <main>
+      <div class="heading-row"><div><p class="eyebrow">WORKSPACE ACCESS</p><h1>文件夹权限</h1><p class="intro">决定 ChatGPT 可以在哪里工作。</p></div>
+        <button class="primary" id="add" disabled><span aria-hidden="true">＋</span> 添加文件夹</button>
+      </div>
+      <section class="connection" aria-label="服务状态">
+        <div><span class="dot" id="service-dot"></span><strong id="service-status">正在连接本机服务</strong><span class="connection-detail" id="service-detail">载入授权列表…</span></div>
+        <span class="connection-endpoint">DevSpace · Air</span>
+      </section>
+      <div id="notice" role="status" hidden></div>
+      <div class="picker-status" id="picker-status" hidden><span>请在系统窗口中选择文件夹。</span><button class="text-button" id="cancel-picker">取消选择</button></div>
+      <section class="editor" id="editor" aria-labelledby="editor-title" hidden>
+        <div class="editor-heading"><h2 id="editor-title">授权此文件夹</h2><button class="icon-button" id="editor-close" aria-label="取消">×</button></div>
+        <div class="selected-folder"><span class="folder-icon" aria-hidden="true"></span><div><strong id="selected-name"></strong><p id="selected-path"></p></div></div>
+        <fieldset id="mode-field"><legend>访问权限</legend><div class="mode-options">
+          <label><input type="radio" name="mode" value="rw" checked><span><strong>读写</strong><small>读取、修改和删除文件</small></span></label>
+          <label><input type="radio" name="mode" value="ro"><span><strong>只读</strong><small>查看资料，不修改内容</small></span></label>
+        </div></fieldset>
+        <p class="scope-note" id="scope-note">包括全部子文件夹。账户凭据和运行配置仍受保护。</p>
+        <div class="merge-note" id="merge-note" hidden></div>
+        <div class="editor-actions"><span id="editor-hint">应用时会短暂重新连接 DevSpace。</span><button class="secondary" id="cancel-edit">取消</button><button class="primary" id="confirm">确认授权</button></div>
+      </section>
+      <section class="progress" id="progress" role="status" hidden>
+        <div><span class="spinner"></span><strong id="progress-text">正在应用</strong></div>
+        <div id="waiting-actions" hidden><button class="text-button" id="cancel-wait">取消修改</button><button class="danger-outline" id="interrupt">中断任务并应用</button></div>
+      </section>
+      <section class="folders" aria-labelledby="folder-title">
+        <div class="list-heading"><h2 id="folder-title">已授权文件夹 <span id="count">—</span></h2><span>权限包括子目录</span></div>
+        <div class="table-heading"><span>文件夹</span><span>权限</span><span>状态</span><span></span></div>
+        <div id="rows"></div>
+        <div class="empty" id="empty" hidden><span class="folder-icon"></span><h3>还没有授权文件夹</h3><p>选择一个业务文件夹，让 ChatGPT 从这里开始。</p></div>
+      </section>
+      <footer class="footnote"><span class="shield" aria-hidden="true">◇</span><p>文件保留在你的电脑上，按任务读取的内容会返回 ChatGPT。撤销授权不会删除文件。</p></footer>
+    </main>
+    <div class="page-footer"><span>你的目录，由你决定。</span><span id="updated">本机权限管理 · v1.0</span></div>
+  </div>
+  <script type="module" src="/app.js"></script>
+</body></html>

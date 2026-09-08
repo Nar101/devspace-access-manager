@@ -1,0 +1,20 @@
+import AppKit
+let n = 128
+let image = NSImage(size: NSSize(width:n,height:n))
+image.lockFocus()
+let tile=NSBezierPath(roundedRect:NSRect(x:4,y:4,width:120,height:120),xRadius:28,yRadius:28)
+NSGradient(starting:NSColor(srgbRed:0.11,green:0.29,blue:0.25,alpha:1),ending:NSColor(srgbRed:0.26,green:0.57,blue:0.43,alpha:1))!.draw(in:tile,angle:65)
+let folder=NSBezierPath()
+folder.move(to:NSPoint(x:24,y:82));folder.curve(to:NSPoint(x:32,y:90),controlPoint1:NSPoint(x:24,y:87),controlPoint2:NSPoint(x:27,y:90))
+folder.line(to:NSPoint(x:49,y:90));folder.line(to:NSPoint(x:57,y:82));folder.line(to:NSPoint(x:96,y:82))
+folder.curve(to:NSPoint(x:104,y:74),controlPoint1:NSPoint(x:101,y:82),controlPoint2:NSPoint(x:104,y:79))
+folder.line(to:NSPoint(x:104,y:43));folder.curve(to:NSPoint(x:96,y:35),controlPoint1:NSPoint(x:104,y:38),controlPoint2:NSPoint(x:101,y:35))
+folder.line(to:NSPoint(x:32,y:35));folder.curve(to:NSPoint(x:24,y:43),controlPoint1:NSPoint(x:27,y:35),controlPoint2:NSPoint(x:24,y:38));folder.close()
+NSColor(srgbRed:0.79,green:0.91,blue:0.79,alpha:1).setFill();folder.fill()
+NSColor(srgbRed:0.92,green:0.98,blue:0.90,alpha:1).setFill();NSBezierPath(roundedRect:NSRect(x:24,y:35,width:80,height:39),xRadius:8,yRadius:8).fill()
+let shield=NSBezierPath();shield.move(to:NSPoint(x:83,y:66));shield.line(to:NSPoint(x:101,y:59));shield.line(to:NSPoint(x:101,y:46));shield.curve(to:NSPoint(x:83,y:24),controlPoint1:NSPoint(x:101,y:36),controlPoint2:NSPoint(x:91,y:27));shield.curve(to:NSPoint(x:65,y:46),controlPoint1:NSPoint(x:75,y:27),controlPoint2:NSPoint(x:65,y:36));shield.line(to:NSPoint(x:65,y:59));shield.close()
+NSColor(srgbRed:0.10,green:0.35,blue:0.27,alpha:1).setFill();shield.fill();NSColor(srgbRed:0.92,green:0.98,blue:0.90,alpha:1).setStroke();shield.lineWidth=3;shield.stroke()
+let check=NSBezierPath();check.move(to:NSPoint(x:74,y:46));check.line(to:NSPoint(x:81,y:39));check.line(to:NSPoint(x:92,y:53));check.lineWidth=4;check.lineCapStyle = .round;check.lineJoinStyle = .round;check.stroke()
+image.unlockFocus()
+let rep=NSBitmapImageRep(data:image.tiffRepresentation!)!
+try rep.representation(using:.png,properties:[:])!.write(to:URL(fileURLWithPath:CommandLine.arguments[1]))
