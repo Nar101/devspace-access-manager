@@ -21,7 +21,8 @@ test('normalizes real paths and refuses broad or management locations',async t=>
   assert.equal(await canonicalFolder(path.join(f.home,'alias'),f),await fs.realpath(folder));
   await assert.rejects(canonicalFolder(f.home,f),/包含系统/);
   await assert.rejects(canonicalFolder(f.base,f),/包含系统/);
-  await assert.rejects(canonicalFolder('/Users',f),/包含系统/);
+  await assert.rejects(canonicalFolder('/',f),/包含系统/);
+  if(process.platform==='darwin')await assert.rejects(canonicalFolder('/Users',f),/包含系统/);
 });
 test('duplicate, inherited and parent merge have deterministic permissions',()=>{
   const grants=[{id:'a',path:'/work/a',mode:'rw'},{id:'b',path:'/work/b',mode:'ro'}];
