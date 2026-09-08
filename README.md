@@ -6,7 +6,8 @@
 
 > **DevSpace 让 ChatGPT 直接处理你电脑里的文件和项目。我在它的基础上加了一个管理页面，让选择文件夹、调整权限这些操作更方便。**
 
-**原版 DevSpace：[Waishnav/devspace](https://github.com/Waishnav/devspace)**  
+**原版 DevSpace：[Waishnav/devspace](https://github.com/Waishnav/devspace)**
+
 **本项目：DevSpace 的 macOS 配套管理页面，由 [Nar / 那不然](https://github.com/Nar101) 制作。**
 
 ## 先说 DevSpace 解决了什么问题
