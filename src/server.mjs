@@ -13,7 +13,11 @@ import {Transactions} from './transactions.mjs';
 import {Assistant} from './assistant.mjs';
 import {cliSnapshot,cliSetEnabled} from './cli-management.mjs';
 const require=createRequire(path.join(BASE,'app/package.json'));
-const express=require('express');
+let express;
+try {express=require('express');} catch(error) {
+  if(error.code!=='MODULE_NOT_FOUND')throw error;
+  express=createRequire(import.meta.url)('express');
+}
 const run=promisify(execFile);
 const token=()=>crypto.randomBytes(32).toString('base64url');
 const equal=(a,b)=>typeof a==='string'&&typeof b==='string'&&a.length===b.length&&crypto.timingSafeEqual(Buffer.from(a),Buffer.from(b));
