@@ -9,7 +9,9 @@ function walk(dir){for(const e of fs.readdirSync(dir,{withFileTypes:true})){
   if(e.isDirectory()){walk(p);continue;}
   if(/\.(pem|key|p12|pfx|sqlite|db|log)$/.test(e.name)||e.name.startsWith('.env'))issues.push(rel+': private file type');
   if(!/\.(png|jpg|jpeg|gif|ico)$/.test(e.name)){
-    const s=fs.readFileSync(p,'utf8');
+    let s=fs.readFileSync(p,'utf8');
+    // Exact synthetic redaction fixture only; actual key material is still rejected.
+    if(rel==='context/tests/test_exporter.py')s=s.replace('-----BEGIN '+'PRIVATE KEY-----\\nAAAA\\n-----END PRIVATE KEY-----','REDACTION_TEST_FIXTURE');
     if(/\/(?:Users|home)\/[a-zA-Z][^\s"']*\//.test(s))issues.push(rel+': absolute personal path');
     if(/https:\/\/devspace-air\./.test(s))issues.push(rel+': live instance endpoint');
     if(/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(s))issues.push(rel+': private key');

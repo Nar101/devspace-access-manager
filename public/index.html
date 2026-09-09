@@ -1,13 +1,26 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>DevSpace · 文件夹权限</title><link rel="stylesheet" href="/style.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>DevSpace 本机助手</title><link rel="stylesheet" href="/style.css"></head>
 <body>
   <div class="shell">
     <header class="masthead">
-      <a class="brand" href="/" aria-label="DevSpace 本机管理"><span class="brand-mark">d<span>·</span></span><span>DevSpace <small>本机管理</small></span></a>
+      <a class="brand" href="/" aria-label="DevSpace 本机管理"><span class="brand-mark">d<span>·</span></span><span>DevSpace <small>本机助手</small></span></a>
       <span class="local-label"><svg width="13" height="15" viewBox="0 0 16 18" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="2" y="7" width="12" height="9" rx="2"/><path d="M5 7V5a3 3 0 0 1 6 0v2M8 10v3"/></svg> 仅此电脑可访问</span>
     </header>
     <main>
+      <nav class="tabs" aria-label="助手页面"><button data-page="overview" class="selected">总览</button><button data-page="folders">文件夹</button><button data-page="context">本地上下文</button><button data-page="cli">本机工具</button><button data-page="settings">设置与诊断</button></nav>
+      <div id="notice" role="status" hidden></div>
+      <section id="page-overview" class="panel">
+        <div class="heading-row"><div><p class="eyebrow">YOUR LOCAL ASSISTANT</p><h1>DevSpace 本机助手</h1><p class="intro">连接、目录和上下文，在这里统一管理。</p></div><span class="version-chip">本机整合版 0.3.2</span></div>
+        <div class="overview-grid">
+          <article class="overview-card"><p class="card-kicker">CHATGPT 连接</p><h2 id="overview-connection">正在检查</h2><p id="overview-connection-detail" class="muted">核对本机服务与公网入口</p><div class="card-actions"><button class="primary" data-action="repair">修复连接</button><button class="secondary" data-action="check-connection">重新检查</button></div></article>
+          <article class="overview-card"><p class="card-kicker">本地上下文</p><h2 id="overview-sync">正在检查</h2><p id="overview-sync-detail" class="muted">核对最近更新时间</p><div class="card-actions"><button class="primary" data-action="context-sync">立即同步</button><button class="secondary" data-go="context">查看详情</button></div></article>
+        </div>
+        <div class="stat-strip"><div><strong id="overview-folders">—</strong><span>已授权目录</span></div><div><strong id="overview-sessions">—</strong><span>可检索会话</span></div><div><strong id="overview-summaries">—</strong><span>计算机历史摘要</span></div></div>
+        <section class="plain-card"><h2>从 ChatGPT 开始工作</h2><p>使用 DevSpace 打开已授权目录。回顾工作时，先读本地上下文的 README、同步状态和最近进展，再到项目文件核实。</p><div class="card-actions"><button class="secondary" data-action="open-context">打开上下文目录</button><button class="text-button" data-go="folders">管理文件夹 →</button></div></section>
+        <p class="subtle">连接依赖这台电脑保持唤醒和联网。历史摘要是资料，不替代正式项目状态。</p>
+      </section>
+      <section id="page-folders" class="panel" hidden>
       <div class="heading-row"><div><p class="eyebrow">WORKSPACE ACCESS</p><h1>文件夹权限</h1><p class="intro">决定 ChatGPT 可以在哪里工作。</p></div>
         <button class="primary" id="add" disabled><span aria-hidden="true">＋</span> 添加文件夹</button>
       </div>
@@ -15,7 +28,6 @@
         <div><span class="dot" id="service-dot"></span><strong id="service-status">正在连接本机服务</strong><span class="connection-detail" id="service-detail">载入授权列表…</span></div>
         <span class="connection-endpoint">DevSpace · Air</span>
       </section>
-      <div id="notice" role="status" hidden></div>
       <div class="picker-status" id="picker-status" hidden><span>请在系统窗口中选择文件夹。</span><button class="text-button" id="cancel-picker">取消选择</button></div>
       <section class="editor" id="editor" aria-labelledby="editor-title" hidden>
         <div class="editor-heading"><h2 id="editor-title">授权此文件夹</h2><button class="icon-button" id="editor-close" aria-label="取消">×</button></div>
@@ -39,8 +51,27 @@
         <div class="empty" id="empty" hidden><span class="folder-icon"></span><h3>还没有授权文件夹</h3><p>选择一个业务文件夹，让 ChatGPT 从这里开始。</p></div>
       </section>
       <footer class="footnote"><span class="shield" aria-hidden="true">◇</span><p>文件保留在你的电脑上，按任务读取的内容会返回 ChatGPT。撤销授权不会删除文件。</p></footer>
+      </section>
+      <section id="page-context" class="panel" hidden>
+        <div class="heading-row"><div><p class="eyebrow">LOCAL CONTEXT</p><h1>本地上下文</h1><p class="intro">让 ChatGPT 找到之前的讨论和近期活动。</p></div><button class="primary" data-action="context-sync">立即同步</button></div>
+        <section class="plain-card"><div class="section-top"><h2 id="context-status">正在检查</h2><button class="secondary" id="context-toggle" data-action="context-pause">暂停同步</button></div><dl class="facts"><div><dt>最近处理</dt><dd id="context-updated">—</dd></div><div><dt>可检索会话</dt><dd id="context-count">—</dd></div><div><dt>计算机摘要</dt><dd id="context-summary-count">—</dd></div><div><dt>目录读取授权</dt><dd id="context-permission">—</dd></div></dl><p id="context-errors" class="warning-text" hidden></p><p id="context-request" class="muted"></p><div class="card-actions"><button class="secondary" data-action="open-context">打开记录目录</button><button class="text-button" data-action="permissions">管理系统授权</button></div></section>
+        <section class="plain-card"><h2>正在同步的内容</h2><p>用户与 AI 的可见对话、语音转写、工具名称，以及计算机活动时间线和已有摘要。会话和时间线增量更新；摘要由 Computer History 生成后跟进。</p><p class="muted">不导出系统指令、推理、原始工具参数与输出、按键内容或整屏截图。自动过滤不能保证识别所有敏感信息。</p></section>
+        <section class="plain-card"><h2>排除某个会话</h2><p>排除后会移除它的导出副本，并停止再次生成；原始会话保留。计算机历史摘要可能仍提到它。</p><select id="recent-session" aria-label="选择最近会话"><option value="">选择最近会话…</option></select><div class="input-row"><input id="excluded-id" placeholder="选择上方会话，或粘贴其他会话 ID" aria-label="要排除的会话 ID"><button class="secondary" id="exclude-session">排除会话</button></div><div id="excluded-list"></div></section>
+      </section>
+      <section id="page-cli" class="panel" hidden>
+        <div class="heading-row"><div><p class="eyebrow">LOCAL TOOLS</p><h1>本机工具</h1><p class="intro">符合条件的 CLI 自动可用，不必逐个开启。</p></div><button class="secondary" id="cli-refresh">重新检查</button></div>
+        <section class="plain-card"><div class="section-top"><div><h2 id="cli-status">正在检查</h2><p class="muted" id="cli-summary"></p></div><button class="secondary" id="cli-toggle">暂停接入</button></div><p class="muted">本地工具沿用文件夹权限；业务工具使用本机已有登录。读取技能不增加权限，发送、删除等操作仍须有当前任务授权。</p></section>
+        <section class="plain-card"><h2>业务工具</h2><div id="cli-business"></div></section>
+        <section class="plain-card"><h2>其他本机命令</h2><p class="muted">系统与 Homebrew 原生工具在文件沙箱内执行，禁止联网。未核对的脚本或需要额外凭据的工具显示具体缺口。</p><input id="cli-search" aria-label="查找 CLI" placeholder="搜索名称，例如 rg、git、arkcli"><div id="cli-native"></div></section>
+        <section class="plain-card"><h2>最近请求</h2><div id="cli-jobs"></div><p class="muted">进程结束不代表业务已完成；写入结果不明时，先核对原业务对象，不能直接重试。</p></section>
+      </section>
+      <section id="page-settings" class="panel" hidden>
+        <div class="heading-row"><div><p class="eyebrow">SETTINGS & DIAGNOSTICS</p><h1>设置与诊断</h1><p class="intro">日常维护也从同一个地方完成。</p></div></div>
+        <section class="plain-card"><div class="section-top"><div><h2>登录时自动启动</h2><p class="muted">关闭后不影响当前运行，下次登录不自动开启服务。</p></div><label class="toggle"><input type="checkbox" id="autostart" aria-label="登录时自动启动"><span>启用</span></label></div><p class="muted" id="recovery-state">连接恢复状态正在检查</p></section>
+        <section class="plain-card"><h2>服务控制</h2><p>停止后会断开 ChatGPT 连接并停止上下文同步；已有文件、授权配置与数据保留。有任务执行时会拒绝停止。</p><div class="card-actions"><button class="primary" data-action="start">启动服务</button><button class="danger-outline" id="stop-services">停止服务</button></div></section>
+        <section class="plain-card"><h2>诊断与恢复</h2><p>诊断摘要只包含服务状态和错误，不包含会话正文、账号凭据或原始活动记录。</p><div class="card-actions"><button class="secondary" data-action="diagnostics">保存诊断摘要</button><button class="secondary" data-action="logs">打开日志目录</button></div><p class="subtle">升级使用同一套本机更新脚本，保留现有目录许可。移除入口后会停止服务，保留安装文件、系统授权助手及全部数据，方便恢复。<br><button class="text-button" id="remove-integration">停用并移除启动与快捷入口</button></p></section>
+      </section>
     </main>
-    <div class="page-footer"><span>你的目录，由你决定。</span><span id="updated">本机权限管理 · v1.0</span></div>
-  </div>
-  <script type="module" src="/app.js"></script>
+    <div class="page-footer"><span>DevSpace 负责连接与执行 · Nar 的本机管理助手</span><span>仅此电脑 · 0.3.2</span></div>
+  </div><script type="module" src="/app.js"></script>
 </body></html>

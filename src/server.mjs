@@ -10,20 +10,19 @@ import {readJSON,atomicJSON,loadActive} from './store.mjs';
 import {canonicalFolder,propose} from './policy.mjs';
 import {Supervisor} from './supervisor.mjs';
 import {Transactions} from './transactions.mjs';
+import {Assistant} from './assistant.mjs';
+import {cliSnapshot,cliSetEnabled} from './cli-management.mjs';
 const require=createRequire(path.join(BASE,'app/package.json'));
-let express;
-try {express=require('express');} catch(error) {
-  if(error.code!=='MODULE_NOT_FOUND')throw error;
-  express=createRequire(import.meta.url)('express');
-}
+const express=require('express');
 const run=promisify(execFile);
 const token=()=>crypto.randomBytes(32).toString('base64url');
 const equal=(a,b)=>typeof a==='string'&&typeof b==='string'&&a.length===b.length&&crypto.timingSafeEqual(Buffer.from(a),Buffer.from(b));
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
-export function createManager({port=7678,supervisor=new Supervisor(),transactions=new Transactions(supervisor),picker,clock=Date.now,idleMs=900000,idleSweepMs=10000,onIdle=()=>process.exit(0)}={}) {
+export function createManager({port=7678,supervisor=new Supervisor(),transactions=new Transactions(supervisor),picker,assistant=new Assistant({supervisor}),clock=Date.now,idleMs=900000,idleSweepMs=10000,onIdle=()=>process.exit(0)}={}) {
   const app=express(), origin='http://127.0.0.1:'+port;
   const sessions=new Map(), launches=new Map(), previews=new Map();
   const launchSecret=token();
+  let controlOperation=null;
   let lastActivity=clock(), picking=false, pickerAbort=null, operation=null, server, idleTimer;
   app.disable('x-powered-by');
   app.use((req,res,next)=>{
@@ -50,22 +49,25 @@ export function createManager({port=7678,supervisor=new Supervisor(),transaction
     if(!expires||expires<clock())return res.status(401).json({error:'请重新双击启动管理页'});
     launches.delete(nonce);
     const id=token(),csrf=token();sessions.set(id,{csrf,expires:clock()+900000});lastActivity=clock();
-    res.setHeader('Set-Cookie','dsa_session='+id+'; HttpOnly; SameSite=Strict; Path=/; Max-Age=900');
-    res.json({csrf});
+    // Expire pre-upgrade cookies; management credentials are never ambient.
+    res.setHeader('Set-Cookie','dsa_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');
+    res.json({accessToken:id,csrf});
   });
   app.use('/api',(req,res,next)=>{
-    const id=req.headers.cookie?.split(';').map(s=>s.trim()).find(s=>s.startsWith('dsa_session='))?.slice(12);
+    const id=req.headers.authorization?.match(/^Bearer ([A-Za-z0-9_-]{43})$/i)?.[1];
     const session=sessions.get(id);
     if(!session||session.expires<clock())return res.status(401).json({error:'管理会话已结束，请重新双击启动'});
     if(req.method!=='GET') {
       if(req.headers.origin!==origin || !req.is('application/json') || !equal(req.headers['x-csrf-token'],session.csrf))
         return res.status(403).json({error:'请求校验失败，请重新打开管理页'});
       lastActivity=clock();session.expires=clock()+900000;
-      res.setHeader('Set-Cookie','dsa_session='+id+'; HttpOnly; SameSite=Strict; Path=/; Max-Age=900');
     }
     req.managerSession=session;next();
   });
   app.get('/api/session',(req,res)=>res.json({csrf:req.managerSession.csrf}));
+  app.get('/api/cli',async(req,res,next)=>{try{res.json(await cliSnapshot());}catch(e){next(e);}});
+  app.post('/api/cli/enabled',async(req,res,next)=>{try{res.json(await cliSetEnabled(req.body?.enabled));}catch(e){next(e);}});
+  app.post('/api/cli/refresh',async(req,res,next)=>{try{res.json(await cliSnapshot({refresh:true}));}catch(e){next(e);}});
   app.get('/api/state',async(req,res,next)=>{
     try {
       const current=await loadActive(), service=await supervisor.state();
@@ -74,14 +76,21 @@ export function createManager({port=7678,supervisor=new Supervisor(),transaction
         return {...g,name:path.basename(g.path),available};
       }));
       res.json({revision:current.revision,grants,
-        service:{running:service.service.running,tunnelRunning:service.tunnel.running,busy:service.busy,
+        service:{pid:service.service.pid,tunnelPid:service.tunnel.pid,running:service.service.running,tunnelRunning:service.tunnel.running,busy:service.busy,
           generation:service.telemetry?.generation||null,loaded:service.service.loaded},
         operation,picking});
     }catch(e){next(e);}
   });
+  app.get('/api/assistant',async(req,res,next)=>{try{res.json({...await assistant.snapshot(),operation:controlOperation});}catch(e){next(e);}});
+  app.post('/api/assistant/action',(req,res)=>{
+    if(picking||(operation&&!['done','error','cancelled'].includes(operation.phase))||controlOperation?.phase==='running')return res.status(409).json({error:'请先完成当前操作'});
+    controlOperation={id:token(),createdAt:clock(),phase:'running',action:req.body?.action,message:'正在处理…'};
+    res.status(202).json(controlOperation);
+    void assistant.action(req.body?.action,req.body||{}).then(message=>{controlOperation.phase='done';controlOperation.message=message;}).catch(e=>{controlOperation.phase='error';controlOperation.message=e.message;}).finally(()=>{lastActivity=clock();});
+  });
   app.post('/api/activity',(_,res)=>res.json({ok:true}));
   app.post('/api/pick-folder',async(req,res,next)=>{
-    if(picking||operation&&!['done','error','cancelled'].includes(operation.phase))return res.status(409).json({error:'请先完成当前操作'});
+    if(controlOperation?.phase==='running'||picking||operation&&!['done','error','cancelled'].includes(operation.phase))return res.status(409).json({error:'请先完成当前操作'});
     picking=true;
     pickerAbort=new AbortController();
     try {
@@ -126,7 +135,7 @@ export function createManager({port=7678,supervisor=new Supervisor(),transaction
     finally{lastActivity=clock();}
   }
   app.post('/api/apply',(req,res)=>{
-    if(picking||operation&&!['done','error','cancelled'].includes(operation.phase))return res.status(409).json({error:'请先完成当前操作'});
+    if(controlOperation?.phase==='running'||picking||operation&&!['done','error','cancelled'].includes(operation.phase))return res.status(409).json({error:'请先完成当前操作'});
     const plan=previews.get(req.body?.previewId);
     if(!plan||plan.expires<clock())return res.status(409).json({error:'确认已过期，请重新选择'});
     previews.delete(req.body.previewId);
@@ -156,7 +165,7 @@ export function createManager({port=7678,supervisor=new Supervisor(),transaction
       server=await new Promise((resolve,reject)=>{const s=app.listen(port,'127.0.0.1',()=>resolve(s));s.once('error',reject);});
       await atomicJSON(SESSION,{pid:process.pid,port,launchSecret,startedAt:clock()});
       idleTimer=setInterval(async()=>{
-        const busy=picking||operation&&!['done','error','cancelled'].includes(operation.phase);
+        const busy=controlOperation?.phase==='running'||picking||operation&&!['done','error','cancelled'].includes(operation.phase);
         if(!busy&&clock()-lastActivity>idleMs){clearInterval(idleTimer);await this.close();onIdle();}
         for(const [id,e] of launches)if(e<clock())launches.delete(id);
         for(const [id,p] of previews)if(p.expires<clock())previews.delete(id);

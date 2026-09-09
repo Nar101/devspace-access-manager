@@ -13,10 +13,16 @@ app.use((req,res,next)=>{if(req.headers.host!=='127.0.0.1:7680')return res.sendS
 app.get('/',(_,res)=>{let html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
   html=html.replace('<body>','<body><div style="padding:10px 16px;text-align:center;background:#e8efe9;color:#325644;font:12px -apple-system,sans-serif">界面演示 · 示例目录与模拟状态 · 不访问真实文件，不修改系统权限</div>');
   html=html.replace('DevSpace · Air','UI Demo');res.type('html').send(html);});
-app.get('/api/session',(_,res)=>res.json({csrf:'demo-only'}));
-app.post('/api/session',(_,res)=>res.json({csrf:'demo-only'}));
+app.get('/api/session',(_,res)=>res.json({csrf:'demo-only',accessToken:'demo-only'}));
+app.post('/api/session',(_,res)=>res.json({csrf:'demo-only',accessToken:'demo-only'}));
 app.post('/api/activity',(_,res)=>res.json({ok:true}));
-app.get('/api/state',(_,res)=>res.json({revision,grants,service:{running:true,tunnelRunning:true,busy:false,generation:revision},operation,picking:false}));
+app.get('/api/state',(_,res)=>res.json({revision,grants,service:{running:demoRunning,tunnelRunning:demoRunning,busy:false,generation:revision},operation,picking:false}));
+let demoRunning=true,contextRunning=true,autoStart=true,cliEnabled=true;
+app.get('/api/assistant',(_,res)=>res.json({preferences:{autoStart},healthFresh:true,health:{checkedAt:Date.now(),sample:{publicOK:demoRunning}},recovery:{loaded:demoRunning},context:{job:{loaded:contextRunning,running:contextRunning,pid:1},permission:{ok:true,pid:1},phase:'idle',checked_at:Date.now(),sessions:12,summaries:4,excluded:[],recent:[],errors:[]}}));
+app.post('/api/assistant/action',(req,res)=>{const a=req.body.action;if(a==='stop')demoRunning=contextRunning=false;if(['start','repair'].includes(a))demoRunning=true;if(a==='context-pause')contextRunning=false;if(a==='context-resume')contextRunning=true;if(a==='autostart')autoStart=!!req.body.enabled;res.json({ok:true,message:'演示操作完成，未修改真实服务'});});
+const cliDemo=()=>({enabled:cliEnabled,entries:[],discovered:[],jobs:[]});
+app.get('/api/cli',(_,res)=>res.json(cliDemo()));app.post('/api/cli/refresh',(_,res)=>res.json(cliDemo()));
+app.post('/api/cli/enabled',(req,res)=>{cliEnabled=!!req.body.enabled;res.json({message:'仅更新演示状态'});});
 app.post('/api/pick-folder',(_,res)=>res.json({cancelled:false,path:'/Demo/新项目-'+sequence,name:'新项目-'+sequence}));
 app.post('/api/cancel-picker',(_,res)=>res.json({ok:true}));
 app.post('/api/preview',(req,res)=>{try{
@@ -27,5 +33,6 @@ app.post('/api/preview',(req,res)=>{try{
 app.post('/api/apply',(req,res)=>{const plan=plans.get(req.body.previewId);if(!plan)return res.status(400).json({error:'请重新确认'});
   grants=plan.grants.map(g=>({...g,name:path.basename(g.path),available:true}));plans.delete(req.body.previewId);revision='demo-'+(++sequence);
   operation={id:String(sequence),phase:'done',message:'示例已更新，未修改真实权限'};res.json({ok:true});});
+app.get('/app.js',(_,res)=>res.type('js').send(fs.readFileSync(path.join(root,'public/app.js'),'utf8').replace("new URLSearchParams(location.hash.slice(1)).get('launch')","'demo-only'")));
 app.use(express.static(path.join(root,'public')));
 app.listen(7680,'127.0.0.1',()=>console.log('UI-only demo: http://127.0.0.1:7680 — no real file access or permission changes.'));

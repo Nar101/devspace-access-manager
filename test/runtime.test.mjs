@@ -26,3 +26,10 @@ test('runtime tracks actual tool completion and rejects new calls during drain',
   assert.equal(packet.data.activeRequests,0);
   hook.shutdown();
 });
+test('legacy CLI workspace authorization survives MCP transport recreation',async t=>{
+ const base=await fs.mkdtemp(path.join(os.tmpdir(),'devspace-session-'));await fs.mkdir(path.join(base,'state'));await fs.mkdir(path.join(base,'config/access'),{recursive:true});
+ const hook=createHook({manifest:{revision:'test',grants:[]},key:'test',base,cli:{call:async()=>({ok:true}),close(){}},registerCLI:()=>{}});t.after(async()=>{hook.shutdown();await fs.rm(base,{recursive:true,force:true});});
+ const a={},b={},first={registerTool:(n,d,h)=>a[n]=h},second={registerTool:(n,d,h)=>b[n]=h};hook.register(first);hook.register(second);
+ first.registerTool('open_workspace',{},async()=>({structuredContent:{workspaceId:'ws-test'},content:[]}));second.registerTool('exec_command',{},async()=>{throw Error('must not invoke shell')});
+ await a.open_workspace({});const result=await b.exec_command({workspaceId:'ws-test',cmd:'devspace-cli {"method":"discover","args":{}}'});assert.equal(JSON.parse(result.structuredContent.result).ok,true);
+});

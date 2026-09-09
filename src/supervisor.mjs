@@ -60,7 +60,7 @@ export class Supervisor {
   }
   async start(before, revision) {
     const domain='gui/'+this.uid;
-    const launch=async label=>{await run('/bin/launchctl',['bootstrap',domain,path.join(process.env.HOME,'Library/LaunchAgents',label+'.plist')],{timeout:10000});};
+    const launch=async label=>{let p=path.join(this.base,'config/launchagents',label+'.plist');try{await fs.access(p);}catch{p=path.join(process.env.HOME,'Library/LaunchAgents',label+'.plist');}await run('/bin/launchctl',['bootstrap',domain,p],{timeout:10000});};
     if(before.service.loaded) {
       await launch('com.nar.devspace-air');
       let ready=false;

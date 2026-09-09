@@ -8,10 +8,7 @@ import {fileURLToPath} from 'node:url';
 import {BASE,ROOT,ACCESS,ACTIVE,KEY,NODE} from './paths.mjs';
 import {readJSON,atomicJSON,loadActive} from './store.mjs';
 import {stageGeneration} from './policy.mjs';
-if(!process.argv.includes('--migrate-existing')){
-  console.error('Source preview: this migrates a pre-existing, reviewed DevSpace deployment. Read docs/integration.md before using --migrate-existing.');
-  process.exit(2);
-}
+if(!process.argv.includes('--migrate-existing')){console.error('Source preview: read docs/integration.md before using --migrate-existing.');process.exit(2);}
 const run=promisify(execFile);
 const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const hashes=await readJSON(path.join(source,'runtime/upstream-hashes.json'));

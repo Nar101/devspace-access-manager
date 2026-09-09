@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
-export function createHook({manifest,key,base}) {
-  const groups=new Map();
+import {wrapCompatibility} from './cli-compat.mjs';
+export function createHook({manifest,key,base,cli,registerCLI,z}) {
+  const groups=new Map(),workspaces=new Set();
   let activeRequests=0,stopped=false;
   const statusPath=path.join(base,'state/access-status.json');
   const drain=path.join(base,'config/access/drain.json');
@@ -18,12 +19,15 @@ export function createHook({manifest,key,base}) {
   return {
     register(server) {
       const register=server.registerTool.bind(server);
-      server.registerTool=(name,definition,handler)=>register(name,definition,async(...args)=>{
+      server.registerTool=(name,definition,handler)=>{
+       const invoke=cli?wrapCompatibility(name,handler,cli,workspaces):handler;
+       return register(name,definition,async(...args)=>{
         if(fs.existsSync(drain))throw new Error('Folder permissions are being updated; retry after reconnecting.');
         activeRequests++;publish();
-        try{return await handler(...args);}
+        try{return await invoke(...args);}
         finally{activeRequests--;publish();}
-      });
+       });
+      };
       server.registerTool('list_authorized_folders',{
         title:'已授权文件夹',
         description:'List this Mac’s currently authorized business folders, permissions and availability. Call this when selecting a workspace or when folder access changes. This tool cannot change permissions.',
@@ -31,6 +35,7 @@ export function createHook({manifest,key,base}) {
       },async()=>({
         content:[{type:'text',text:JSON.stringify({generation:manifest.revision,folders:manifest.grants.map(g=>({name:path.basename(g.path),path:g.path,permission:g.mode==='rw'?'read-write':'read-only',available:fs.existsSync(g.path)}))})}]
       }));
+      if(cli)registerCLI(server,cli,z);
     },
     beforeRequest(req,res){
       if(req.body?.method!=='tools/call')return true;
@@ -44,6 +49,7 @@ export function createHook({manifest,key,base}) {
     shutdown(){
       if(stopped)return;stopped=true;
       clearInterval(timer);
+      cli?.close();
       for(const g of groups.values())try{process.kill(-g.pgid,'SIGTERM');}catch{}
       publish();
     }

@@ -1,6 +1,6 @@
 {
   "name": "devspace-access-manager",
-  "version": "0.1.0",
+  "version": "0.3.2",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -16,7 +16,8 @@
     "test": "node --test test/*.test.mjs",
     "check:public": "node scripts/check-public.mjs",
     "demo": "node demo/server.mjs",
-    "install:local": "node src/install.mjs"
+    "install:local": "node src/install.mjs",
+    "test:context": "python3 -m unittest discover -s context/tests -v"
   },
   "dependencies": {
     "express": "5.1.0"

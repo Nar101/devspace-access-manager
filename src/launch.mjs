@@ -26,4 +26,4 @@ if(!url){
 }
 if(!url) {console.error('管理页未能启动。请检查本机 7678 端口或 access-manager.log。');process.exit(1);}
 if(process.argv.includes('--no-open'))console.log('管理页已就绪：http://127.0.0.1:7678（请用启动入口建立管理会话）');
-else {await run('/usr/bin/open',[url]);console.log('文件夹权限管理页已打开。此终端窗口可以关闭。');}
+else {await run('/usr/bin/open',[url]);console.log('DevSpace 本机助手已打开。');}

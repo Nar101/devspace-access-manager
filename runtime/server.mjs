@@ -1,12 +1,16 @@
-import {readFileSync,closeSync,existsSync} from 'node:fs';
+import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
 import {loadConfig} from '../app/node_modules/@waishnav/devspace/dist/config.js';
 import {createServer} from '../app/node_modules/@waishnav/devspace/dist/server.js';
 import {shutdownHttpServer} from '../app/node_modules/@waishnav/devspace/dist/server-shutdown.js';
 import {createHook} from '../manager/runtime/access-hook.mjs';
+import {createCLIClient,registerCLI} from '../manager/runtime/cli-client.mjs';
+import {z} from '../app/node_modules/zod/index.js';
 const base=path.resolve(new URL('..',import.meta.url).pathname);
-const input=readFileSync(0);closeSync(0);
+// Keep the consumed, EOF-only stdin descriptor open. Closing fd 0 before
+// attaching the private socket lets libuv reuse a standard descriptor internally.
+const input=readFileSync(0);
 const credentials=JSON.parse(input.toString('utf8'));input.fill(0);
 const receipt=JSON.parse(readFileSync(path.join(base,'config/installation.json'),'utf8'));
 const digest=createHash('sha256').update(readFileSync(path.join(base,'app/package-lock.json'))).digest('hex');
@@ -23,7 +27,8 @@ const config=loadConfig({...process.env,DEVSPACE_OAUTH_OWNER_TOKEN:credentials.o
 // Explicitly preserve an empty allowlist; upstream defaults must not grant cwd.
 config.allowedRoots=manifest.grants.map(g=>g.path);
 if(config.host!=='127.0.0.1'||config.port!==7676||config.toolMode!=='codex'||config.subagents.enabled||config.allowedHosts.includes('*'))throw new Error('Invalid deployment settings');
-globalThis.__devspaceAccessHook=createHook({manifest,key:credentials.telemetryKey,base});
+const cli=credentials.cliEnabled?createCLIClient(3,pid=>globalThis.__devspaceAccessHook.spawned(pid)):null;
+globalThis.__devspaceAccessHook=createHook({manifest,key:credentials.telemetryKey,base,cli,registerCLI,z});
 const {app,close}=createServer(config);
 // Forwarded addresses are accepted only from the local reverse proxy, never trust-all.
 app.set('trust proxy','loopback');
