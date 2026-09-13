@@ -1,12 +1,12 @@
 # 运行配置与发布范围
 
-当前仍要求既有 macOS Apple Silicon DevSpace 1.0.8 集成及独立Node24运行库。DEVSPACE_HOME指定本机部署目录，DEVSPACE_NODE指定Node路径。现有默认服务标签含devspace-air，这是兼容标识，不代表可以把Air配置复制给别人；Mini服务标签和入口需要在升级时保留。
+当前仍要求既有 macOS Apple Silicon DevSpace 1.0.8 集成及独立Node24运行库。DEVSPACE_HOME指定本机部署目录，DEVSPACE_NODE指定Node路径。升级时须保留目标安装自己的服务标签、入口与连接配置。
 
 ## 可选能力
 
 能力配置在部署目录config/capabilities.json，只留本机。install-capabilities.mjs的--enable-grok、--enable-grok-search、--enable-project-delivery分别显式开启Grok、只读X搜索和npm验证/确认应用。默认保留原有停用设置。
 
-Grok默认使用当前用户的~/.grok/auth.json和~/.grok/bin/grok；可通过GROK_AUTH_FILE、GROK_BINARY指定本人已有安装。GROK_BUILD_PROXY为可选代理，未设置时不强制任何作者私有端口。设置必须进入实际启动服务环境，不能只在另一个终端设置。刷新令牌仅在本机父进程使用；不要在Git提交这些文件。
+Grok默认使用当前用户的~/.grok/auth.json和~/.grok/bin/grok；可通过GROK_AUTH_FILE、GROK_BINARY指定本人已有安装。GROK_BUILD_PROXY为可选代理，未设置时沿用当前运行环境。设置必须进入实际启动服务环境，不能只在另一个终端设置。刷新令牌仅在本机父进程使用；不要在Git提交这些文件。
 
 Codex需要本人已登录的CLI，其配置和账号不会复制到任务。任务只得到临时转发口令。两种模型的登录兼容接口均需随CLI升级复核。
 
