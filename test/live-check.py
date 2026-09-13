@@ -3,12 +3,9 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 import requests
 
-BASE = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else ""
-if not BASE or os.environ.get("DEVSPACE_LIVE_CHECK") != "1":
-    raise SystemExit("Opt-in required: DEVSPACE_LIVE_CHECK=1 python3 test/live-check.py https://YOUR-OWN-ENDPOINT")
-DEPLOY = Path(os.environ.get("DEVSPACE_HOME", str(Path.home()/".local/share/devspace-air")))
-TEST_ROOT = Path(os.environ.get("DEVSPACE_TEST_ROOT", str(Path.home()/"Workspace")))
-assert BASE.startswith("https://") or BASE == "http://127.0.0.1:7676", "Use HTTPS or the local endpoint"
+BASE = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("DEVSPACE_TEST_URL", "http://127.0.0.1:7676")
+assert urlparse(BASE).scheme == "https" or BASE == "http://127.0.0.1:7676", "Use your own HTTPS endpoint or localhost"
+ROOT = str(Path.home() / "Workspace" / "DevSpace-Test")
 session = requests.Session()
 session.trust_env = not BASE.startswith("http://127.0.0.1")
 results = []
@@ -44,11 +41,11 @@ def tool(name, args):
 import tempfile,time,shutil,subprocess
 local=requests.Session();local.trust_env=False
 admin='http://127.0.0.1:7678'
-manager=json.loads((DEPLOY/'access-manager-session.json').read_text())
+manager=json.loads(Path('~/.local/share/devspace-air/access-manager-session.json').read_text())
 r=local.post(admin+'/internal/launch',headers={'x-launch-secret':manager['launchSecret']});r.raise_for_status()
 nonce=urlparse(r.json()['url']).fragment.split('=',1)[1]
 r=local.post(admin+'/api/session',json={'token':nonce},headers={'Origin':admin});r.raise_for_status()
-csrf=r.json()['csrf'];local.headers.update({'Origin':admin,'X-CSRF-Token':csrf})
+manager_auth=r.json();csrf=manager_auth['csrf'];local.headers.update({'Origin':admin,'X-CSRF-Token':csrf,'Authorization':'Bearer '+manager_auth['accessToken']})
 def admincall(method,body=None):
  r=local.get(admin+'/api/'+method,timeout=10) if body is None else local.post(admin+'/api/'+method,json=body,timeout=10)
  r.raise_for_status();return r.json()
@@ -71,7 +68,7 @@ meta=session.get(BASE+'/.well-known/oauth-authorization-server',timeout=20).json
 client=session.post(meta['registration_endpoint'],json={'client_name':'Access manager integration','redirect_uris':['http://127.0.0.1:8765/callback'],'grant_types':['authorization_code','refresh_token'],'response_types':['code'],'token_endpoint_auth_method':'none'},timeout=20).json()
 verifier=secrets.token_urlsafe(48);challenge=base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip('=')
 form={'client_id':client['client_id'],'redirect_uri':'http://127.0.0.1:8765/callback','response_type':'code','scope':'devspace','resource':BASE+'/mcp','code_challenge':challenge,'code_challenge_method':'S256','state':secrets.token_urlsafe(16)}
-owner=json.loads((DEPLOY/'secrets/owner.json').read_text())['ownerToken']
+owner=json.loads(Path('~/.local/share/devspace-air/secrets/owner.json').read_text())['ownerToken']
 r=session.post(meta['authorization_endpoint'],data={**form,'owner_token':owner},allow_redirects=False,timeout=20);assert r.status_code==302
 code=parse_qs(urlparse(r.headers['Location']).query)['code'][0]
 r=session.post(meta['token_endpoint'],data={'grant_type':'authorization_code','code':code,'code_verifier':verifier,'redirect_uri':form['redirect_uri'],'client_id':client['client_id'],'resource':BASE+'/mcp'},timeout=20);r.raise_for_status();tokens=r.json()
@@ -85,7 +82,7 @@ def connect():
    session.headers['MCP-Protocol-Version']=init['protocolVersion'];rpc('notifications/initialized',notification=True);return
   except Exception:time.sleep(.5)
  raise AssertionError('MCP reconnect failed')
-root=Path(tempfile.mkdtemp(prefix='DevSpace权限验收-',dir=TEST_ROOT))
+root=Path(tempfile.mkdtemp(prefix='DevSpace权限验收-',dir='~/Workspace'))
 folder=root/'中文 空格 "目录"';folder.mkdir()
 baseline=admincall('state')['grants'];grant_id=None
 try:
@@ -98,9 +95,7 @@ try:
  patched=tool('apply_patch',{'workspaceId':wid,'patch':'*** Begin Patch\n*** Add File: access.txt\n+original\n*** End Patch'});check('Read-write file operation',not patched.get('isError'))
  executed=tool('exec_command',{'workspaceId':wid,'cmd':"node -e 'require(\"fs\").writeFileSync(\"command.txt\",\"ok\")'"});check('Read-write command operation',executed.get('structuredContent',{}).get('exitCode')==0)
  # The management session file must not be accessible from the granted workspace.
- import shlex
- probe='try{require("fs").readFileSync('+json.dumps(str(DEPLOY/'access-manager-session.json'))+');process.exit(9)}catch(e){console.log(e.code)}'
- result=tool('exec_command',{'workspaceId':wid,'cmd':'node -e '+shlex.quote(probe)})
+ result=tool('exec_command',{'workspaceId':wid,'cmd':"node -e 'try{require(\"fs\").readFileSync(\"~/.local/share/devspace-air/access-manager-session.json\");process.exit(9)}catch(e){console.log(e.code)}'"})
  check('Management credentials remain inaccessible','EPERM' in result.get('structuredContent',{}).get('result',''))
  state=change('mode',grant_id,'ro');connect()
  read=tool('read',{'workspaceId':wid,'path':'access.txt'});check('Read-only folder and old workspace ID still permit reads',not read.get('isError'))
@@ -127,7 +122,7 @@ try:
  connect();read=tool('read',{'workspaceId':wid,'path':'access.txt'});check('Revoked old workspace ID rejected',bool(read.get('isError')))
  check('Revoking does not delete files',(folder/'access.txt').exists())
  check('Original permissions preserved',sorted((g['path'],g['mode']) for g in state['grants'])==sorted((g['path'],g['mode']) for g in baseline))
- (DEPLOY/'config/access-manager-live-check.json').write_text(json.dumps({'results':results,'checkedAt':time.time()},ensure_ascii=False,indent=2)+'\n')
+ Path('~/.local/share/devspace-air/config/access-manager-live-check.json').write_text(json.dumps({'results':results,'checkedAt':time.time()},ensure_ascii=False,indent=2)+'\n')
 finally:
  try:
   if grant_id and any(g['id']==grant_id for g in admincall('state')['grants']):

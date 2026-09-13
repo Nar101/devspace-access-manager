@@ -18,15 +18,17 @@ export function createHook({manifest,key,base,cli,registerCLI,z}) {
   const timer=setInterval(publish,500);timer.unref();publish();
   return {
     register(server) {
-      const register=server.registerTool.bind(server);
+      const register=server.registerTool.bind(server);let reviewRegistered=false,reviewTool;
       server.registerTool=(name,definition,handler)=>{
+       if(name==='show_changes'&&reviewRegistered)return reviewTool;
        const invoke=cli?wrapCompatibility(name,handler,cli,workspaces):handler;
-       return register(name,definition,async(...args)=>{
+       const tool=register(name,definition,async(...args)=>{
         if(fs.existsSync(drain))throw new Error('Folder permissions are being updated; retry after reconnecting.');
         activeRequests++;publish();
         try{return await invoke(...args);}
         finally{activeRequests--;publish();}
        });
+       if(name==='show_changes'){reviewRegistered=true;reviewTool=tool;}return tool;
       };
       server.registerTool('list_authorized_folders',{
         title:'已授权文件夹',

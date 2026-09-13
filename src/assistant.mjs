@@ -23,7 +23,7 @@ export class Assistant {
   let summaries=null;try{summaries=(await fs.readdir(path.join(cfg.output,'计算机历史/摘要'))).filter(x=>x.endsWith('.md')).length;}catch{}
   const excluded=await safeRead(path.join(this.context,'state/excluded-sessions.json'))||[];
   const recent=[];try{const text=await fs.readFile(path.join(cfg.output,'最近进展.md'),'utf8');for(const m of text.matchAll(/^## \[([^\]\n]+)\]\(会话\/[^/]+\/([A-Za-z0-9_-]{8,100})\.md\)/gm))recent.push({title:m[1],id:m[2]});}catch{}
-  return {version:'0.3.2',health,healthFresh:!!health&&Date.now()-health.checkedAt<180000,context:{...status,output:cfg?.output||null,summaries,job:exporter,permission:permission?{ok:permission.ok,at:permission.at,message:permission.message,pid:permission.pid}:null,stale:!status||Date.now()-Date.parse(status.checked_at)>600000,excluded,recent,request,result},preferences,recovery};
+  return {version:'0.4.4',health,healthFresh:!!health&&Date.now()-health.checkedAt<180000,context:{...status,output:cfg?.output||null,summaries,job:exporter,permission:permission?{ok:permission.ok,at:permission.at,message:permission.message,pid:permission.pid}:null,stale:!status||Date.now()-Date.parse(status.checked_at)>600000,excluded,recent,request,result},preferences,recovery};
  }
  async plist(label){const p=path.join(this.base,'config/launchagents',label+'.plist');try{await fs.access(p);return p;}catch{return path.join(os.homedir(),'Library/LaunchAgents',label+'.plist');}}
  async startJob(label){for(let i=0;i<10;i++){if((await this.supervisor.job(label)).loaded)return;try{await this.run('/bin/launchctl',['bootstrap','gui/'+process.getuid(),await this.plist(label)],{timeout:10000});return;}catch(e){if(i===9)throw e;await sleep(300);}}}

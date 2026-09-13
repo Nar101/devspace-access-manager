@@ -20,7 +20,7 @@ try{
  const definitions=path.join(BASE,'config/launchagents');await fs.mkdir(definitions,{recursive:true});
  for(const label of LABELS){const old=path.join(os.homedir(),'Library/LaunchAgents',label+'.plist'),target=path.join(definitions,label+'.plist');try{await fs.copyFile(old,path.join(backup,label+'.plist'));await fs.copyFile(old,target);}catch(e){if(e.code!=='ENOENT')throw e;await fs.access(target);}}
  if(wasContext)await service.stopJob(LABELS[3]);
- for(const folder of ['src','public','runtime','scripts','context'])await fs.cp(path.join(repo,folder),path.join(ROOT,folder),{recursive:true});
+ for(const folder of ['src','public','runtime','scripts','context','capabilities'])await fs.cp(path.join(repo,folder),path.join(ROOT,folder),{recursive:true});
  for(const f of ['exporter.py','watcher.mjs'])await fs.copyFile(path.join(repo,'context',f),path.join(CONTEXT,'bin',f));
  await fs.copyFile(path.join(repo,'runtime/control.py'),path.join(BASE,'bin/control'));await fs.chmod(path.join(BASE,'bin/control'),0o755);
  const app=path.join(os.homedir(),'Applications/本地上下文同步.app');
@@ -51,7 +51,7 @@ try{
  const script=path.join(raycast,'devspace-folder-permissions.sh');await fs.writeFile(script,'#!/bin/sh\n# @raycast.schemaVersion 1\n# @raycast.title DevSpace 本机助手\n# @raycast.mode compact\n# @raycast.icon images/devspace-access.png\n# @raycast.packageName DevSpace 本机助手\n# @raycast.description 管理连接、文件夹、上下文同步和诊断。\nexec '+quote(NODE)+' '+quote(path.join(ROOT,'src/launch.mjs'))+'\n',{mode:0o755});await fs.chmod(script,0o755);
  for(const name of ['devspace-folder-permissions.sh','devspace-repair-connection.sh','devspace-connection-status.sh','sync-codex-context.sh','status-codex-context.sh']){const src=path.join(repo,'raycast',name),dst=path.join(raycast,name);try{await fs.access(dst);}catch{try{await fs.copyFile(src,dst);await fs.chmod(dst,0o755);}catch{}}}
 
- await atomicJSON(path.join(BASE,'config/assistant-installation.json'),{version:'0.3.2',nativeSha,source:repo,backup,updatedAt:new Date().toISOString(),componentLabels:LABELS});
+ await atomicJSON(path.join(BASE,'config/assistant-installation.json'),{version:JSON.parse(await fs.readFile(path.join(repo,'package.json'),'utf8')).version,nativeSha,source:repo,backup,updatedAt:new Date().toISOString(),componentLabels:LABELS});
  console.log('本机整合已安装，数据与原授权保留。备份：'+backup);
 }catch(e){
  console.error('安装未完成：'+e.message+'；备份位于 '+backup);

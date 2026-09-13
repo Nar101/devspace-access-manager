@@ -10,7 +10,7 @@ const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 if(!process.argv.includes('--apply')){console.log('安装通用 CLI 执行层：node scripts/install-cli.mjs --apply；保留文件夹、登录和上下文同步。');process.exit(0);}
 const supervisor=new Supervisor(),unlock=await acquireLock();let stopped=false,before;
 const backup=path.join(BASE,'backups','cli-update-'+Date.now());
-const targets=[...['src','public','runtime','cli'].map(x=>[path.join(repo,x),path.join(ROOT,x),x]),[path.join(repo,'runtime/serve.py'),path.join(BASE,'bin/serve'),'serve'],[path.join(repo,'runtime/server.mjs'),path.join(BASE,'bin/server.mjs'),'server.mjs'],[path.join(repo,'runtime/agent.md'),path.join(BASE,'config/agent/AGENTS.md'),'agent.md']];
+const targets=[...['src','public','runtime','cli','capabilities'].map(x=>[path.join(repo,x),path.join(ROOT,x),x]),[path.join(repo,'runtime/serve.py'),path.join(BASE,'bin/serve'),'serve'],[path.join(repo,'runtime/server.mjs'),path.join(BASE,'bin/server.mjs'),'server.mjs'],[path.join(repo,'runtime/agent.md'),path.join(BASE,'config/agent/AGENTS.md'),'agent.md']];
 try{
  for(const [source]of targets)await fs.access(source);
  before=await supervisor.state();if(before.busy)throw new Error('有 MCP 任务运行或状态不明；本次没有替换服务，请任务结束后重新更新。');

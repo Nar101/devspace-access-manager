@@ -5,3 +5,10 @@ build/
 
 __pycache__/
 *.pyc
+
+.env
+.env.*
+*.bundle
+*.tar.gz
+*.zip
+release/
